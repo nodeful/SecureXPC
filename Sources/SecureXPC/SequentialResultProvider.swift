@@ -118,17 +118,7 @@ public class SequentialResultProvider<S: Encodable> {
                 self.finished()
         }
     }
-    
-    /// Responds to the client with the provided result and waits for it to be handled.
-    ///
-    /// - Parameters:
-    ///   -   result: The sequential result to respond with.
-    @available(macOS 10.15, *)
-    public func respond(withResult result: SequentialResult<S, Error>) async throws {
-        try await withUnsafeThrowingContinuation { continuation in
-            self.respond(withResult: result) { continuation.resume(with: $0) }
-        }
-    }
+ 
     
     /// Responds to the client with the provided value.
     ///
@@ -140,22 +130,7 @@ public class SequentialResultProvider<S: Encodable> {
             try Response.encodePayload(value, intoReply: &response)
         }
     }
-    
-    /// Responds to the client with the provided value and waits for it to be handled.
-    /// 
-    /// This is equivalent to ``success(value:onDelivery:)`` and providing a ``SequentialResultDeliveryHandler`` meaning that awaiting this
-    /// function call will wait on the client to have handled the value provided to this function. If there is no need to wait on the client (for example in order to rate
-    /// limit sending new sequential reply values) then use ``success(value:onDelivery:)`` and pass `nil` for the delivery handler.
-    ///
-    /// - Parameters:
-    ///   -   value: The value to be sent.
-    @available(macOS 10.15, *)
-    public func success(value: S) async throws {
-        try await withUnsafeThrowingContinuation { continuation in
-            self.success(value: value) { continuation.resume(with: $0) }
-        }
-    }
-    
+ 
     /// Responds to the client with the error and finishes the sequence.
     ///
     /// This error will also be passed to the ``XPCServer``'s error handler if one has been set.
@@ -171,23 +146,7 @@ public class SequentialResultProvider<S: Encodable> {
             try Response.encodeError(XPCError.handlerError(handlerError), intoReply: &response)
         }
     }
-    
-    /// Responds to the client with the error, finishes the sequence, and waits for it to be handled.
-    ///
-    /// This error will also be passed to the ``XPCServer``'s error handler if one has been set.
-    ///
-    /// This is equivalent to ``failure(error:onDelivery:)`` and providing a ``SequentialResultDeliveryHandler`` meaning that awaiting this
-    /// function call will wait on the client to have handled the error provided to this function.
-    ///
-    /// - Parameters:
-    ///   -   error: The error to be sent to the client and passed to the server's error handler.
-    @available(macOS 10.15, *)
-    public func failure(error: Error) async throws {
-        try await withUnsafeThrowingContinuation { continuation in
-            self.failure(error: error) { continuation.resume(with: $0) }
-        }
-    }
-    
+ 
     /// Responds to the client indicating the sequence is finished.
     ///
     /// If a sequence was not already finished, it will be finished upon deinitialization of this provider.
@@ -198,20 +157,7 @@ public class SequentialResultProvider<S: Encodable> {
         // An "empty" response indicates it's finished
         self.sendResponse(isFinished: true, onDelivery: deliveryHandler) { _ in }
     }
-    
-    /// Responds to the client indicating the sequence is finished and waits for it to be handled.
-    ///
-    /// If a sequence was not already finished, it will be finished upon deinitialization of this provider.
-    ///
-    /// This is equivalent to ``finished(onDelivery:)`` and providing a ``SequentialResultDeliveryHandler`` meaning that awaiting this
-    /// function call will wait on the client to have handled the sequence finishing.
-    @available(macOS 10.15, *)
-    public func finished() async throws {
-        try await withUnsafeThrowingContinuation { continuation in
-            self.finished() { continuation.resume(with: $0) }
-        }
-    }
-    
+ 
     private func sendResponse(
         isFinished: Bool,
         onDelivery deliveryHandler: SequentialResultDeliveryHandler?,

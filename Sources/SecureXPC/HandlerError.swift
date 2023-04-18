@@ -50,16 +50,6 @@ public struct HandlerError: Error {
             throw HandlerError(error: error)
         }
     }
-    
-    /// Wrap calls to an ``XPCServer``'s `async` handlers in this.
-    @available(macOS 10.15.0, *)
-    static func rethrow<T>(_ handler: () async throws -> T) async throws -> T {
-        do {
-            return try await handler()
-        } catch {
-            throw HandlerError(error: error)
-        }
-    }
 }
 
 extension HandlerError: Codable {

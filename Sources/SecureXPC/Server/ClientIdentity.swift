@@ -26,24 +26,7 @@ public extension XPCServer {
             self.connection = connection
             self.message = message
         }
-        
-        // MARK: task local
-        
-        @available(macOS 10.15.0, *)
-        @TaskLocal
-        private static var currentForTask: XPCServer.ClientIdentity?
-        
-        @available(macOS 10.15.0, *)
-        @discardableResult internal static func setForTask<Success, Failure>(
-            connection: xpc_connection_t,
-            message: xpc_object_t,
-            operation: () throws -> Task<Success, Failure>
-        ) rethrows -> Task<Success, Failure> {
-            try $currentForTask.withValue(XPCServer.ClientIdentity(connection: connection, message: message)) {
-                try operation()
-            }
-        }
-        
+                
         // MARK: thread local
         
         private static let contextKey = UUID()
@@ -65,8 +48,6 @@ public extension XPCServer {
         
         private static var current: XPCServer.ClientIdentity {
             if let current = Thread.current.threadDictionary[contextKey] as? XPCServer.ClientIdentity {
-                return current
-            } else if #available(macOS 10.15.0, *), let current = currentForTask {
                 return current
             } else {
                 fatalError("""

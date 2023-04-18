@@ -61,13 +61,6 @@ extension XPCServer.ClientRequirement {
             return try teamIdentifier(teamID)
         }
     }
-
-    /// The requesting client must have [Hardened Runtime](https://developer.apple.com/documentation/security/hardened_runtime)
-    /// enabled.
-    @available(macOS 10.14.0, *)
-    public static var hardenedRuntime: XPCServer.ClientRequirement {
-        XPCServer.ClientRequirement(messageAcceptor: HardenedMessageAcceptor())
-    }
     
     /// The requesting client must be within the same parent bundle as this server.
     ///
@@ -169,31 +162,6 @@ fileprivate protocol MessageAcceptor {
     
     /// Whether the `acceptor` is equivalent to this one.
     func isEqual(to acceptor: MessageAcceptor) -> Bool
-}
-
-@available(macOS 10.14.0, *)
-fileprivate struct HardenedMessageAcceptor: MessageAcceptor {
-    func shouldAcceptMessage(connection: xpc_connection_t, message: xpc_object_t) -> Bool {
-        guard let code = SecCodeCreateWithXPCConnection(connection, andMessage: message) else {
-            return false
-        }
-
-        var staticCode: SecStaticCode?
-        var codeSignInformation: CFDictionary?
-        guard SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess,
-              let staticCode = staticCode,
-              SecCodeCopySigningInformation(staticCode, [], &codeSignInformation) == errSecSuccess,
-              let codeSignInformation = codeSignInformation as NSDictionary?,
-              let codeInfoFlags = codeSignInformation[kSecCodeInfoFlags] as? UInt32 else {
-            return false
-        }
-        
-        return SecCodeSignatureFlags(rawValue: codeInfoFlags).contains(.runtime)
-	}
-
-	func isEqual(to acceptor: MessageAcceptor) -> Bool {
-		acceptor is HardenedMessageAcceptor
-	}
 }
 
 /// This should only be used by XPC services which are by default application-scoped, so it's acceptable to assume they're inheritently safe.

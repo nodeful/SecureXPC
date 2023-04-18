@@ -190,7 +190,7 @@ public class XPCClient {
     ///   - handler: An optionally provided closure to receive a response upon successful completion or error.
     public func send(
         to route: XPCRouteWithoutMessageWithoutReply,
-        onCompletion handler: XPCResponseHandler<Void>?
+        onCompletion handler: XPCResponseHandler<Void>? = nil
     ) {
         if let handler = handler {
             do {
@@ -213,21 +213,6 @@ public class XPCClient {
         }
     }
     
-    /// Sends a request with no message that does not receive a reply.
-    ///
-    /// - Parameters:
-    ///   - route: The server route which will handle this request.
-    @available(macOS 10.15.0, *)
-    public func send(
-        to route: XPCRouteWithoutMessageWithoutReply
-    ) async throws {
-        try await withUnsafeThrowingContinuation { continuation in
-            send(to: route) { response in
-                self.resumeContinuation(continuation, unwrappingResponse: response)
-            }
-        }
-    }
-    
     /// Sends a request with a message that does not receive a reply.
     ///
     /// - Parameters:
@@ -237,7 +222,7 @@ public class XPCClient {
     public func sendMessage<M: Encodable>(
         _ message: M,
         to route: XPCRouteWithMessageWithoutReply<M>,
-        onCompletion handler: XPCResponseHandler<Void>?
+        onCompletion handler: XPCResponseHandler<Void>? = nil
     ) {
         if let handler = handler {
             do {
@@ -259,23 +244,7 @@ public class XPCClient {
             }
         }
     }
-    
-    /// Sends a request with message that does not receive a reply.
-    ///
-    /// - Parameters:
-    ///   - message: Message to be included in the request.
-    ///   - route: The server route which will handle this request.
-    @available(macOS 10.15.0, *)
-    public func sendMessage<M: Encodable>(
-        _ message: M,
-        to route: XPCRouteWithMessageWithoutReply<M>
-    ) async throws {
-        try await withUnsafeThrowingContinuation { continuation in
-            sendMessage(message, to: route) { response in
-                self.resumeContinuation(continuation, unwrappingResponse: response)
-            }
-        }
-    }
+  
     
     /// Sends a request with no message and provides the response as either a reply on success or an error on failure.
     ///
@@ -291,21 +260,6 @@ public class XPCClient {
             sendRequest(request, withResponse: handler)
         } catch {
             handler(.failure(XPCError.asXPCError(error: error)))
-        }
-    }
-    
-    /// Sends a request with no message and receives a reply.
-    ///
-    /// - Parameters:
-    ///    - route: The server route which will handle this request.
-    @available(macOS 10.15.0, *)
-    public func send<R: Decodable>(
-        to route: XPCRouteWithoutMessageWithReply<R>
-    ) async throws -> R {
-        try await withUnsafeThrowingContinuation { continuation in
-            send(to: route) { response in
-                self.resumeContinuation(continuation, unwrappingResponse: response)
-            }
         }
     }
     
@@ -328,23 +282,6 @@ public class XPCClient {
         }
     }
     
-    /// Sends a request with a message that receives a reply.
-    ///
-    /// - Parameters:
-    ///    - message: Message to be included in the request.
-    ///    - route: The server route which will handle this request.
-    @available(macOS 10.15.0, *)
-    public func sendMessage<M: Encodable, R: Decodable>(
-        _ message: M,
-        to route: XPCRouteWithMessageWithReply<M, R>
-    ) async throws -> R {
-        try await withUnsafeThrowingContinuation { continuation in
-            sendMessage(message, to: route) { response in
-                self.resumeContinuation(continuation, unwrappingResponse: response)
-            }
-        }
-    }
-    
     /// Sends a request with no message and provides sequential responses to the provided closure.
     ///
     /// - Parameters:
@@ -359,21 +296,6 @@ public class XPCClient {
             sendRequest(request, handler: handler)
         } catch {
             handler(.failure(XPCError.asXPCError(error: error)))
-        }
-    }
-    
-    /// Sends a request with no message and asynchronously populates the returned stream with responses.
-    ///
-    /// - Parameters:
-    ///   - route: The server route which will handle this request.
-    @available(macOS 10.15.0, *)
-    public func send<S: Decodable>(
-        to route: XPCRouteWithoutMessageWithSequentialReply<S>
-    ) -> AsyncThrowingStream<S, Error> {
-        AsyncThrowingStream<S, Error> { continuation in
-            self.send(to: route) { result in
-                self.populateAsyncThrowingStreamContinuation(continuation, result: result)
-            }
         }
     }
     
@@ -393,23 +315,6 @@ public class XPCClient {
             sendRequest(request, handler: handler)
         } catch {
             handler(.failure(XPCError.asXPCError(error: error)))
-        }
-    }
-    
-    /// Sends a request with a message and asynchronously populates the returned stream with responses.
-    ///
-    /// - Parameters:
-    ///   - message: Message to be included in the request.
-    ///   - route: The server route which will handle this request.
-    @available(macOS 10.15.0, *)
-    public func sendMessage<M: Encodable, S: Decodable>(
-        _ message: M,
-        to route: XPCRouteWithMessageWithSequentialReply<M, S>
-    ) -> AsyncThrowingStream<S, Error> {
-        AsyncThrowingStream<S, Error> { continuation in
-            self.sendMessage(message, to: route) { result in
-                self.populateAsyncThrowingStreamContinuation(continuation, result: result)
-            }
         }
     }
     
@@ -473,19 +378,6 @@ public class XPCClient {
         case instance
     }
     
-    /// Resumes the continuation while unwrapping any underlying errors thrown by a server's handler.
-    @available(macOS 10.15, *)
-    private func resumeContinuation<T>(_ contination: UnsafeContinuation<T, Error>,
-                                       unwrappingResponse response: Result<T, XPCError>) {
-        if case let .failure(error) = response,
-           case let .handlerError(handlerError) = error,
-           case let .available(underlyingError) = handlerError.underlyingError {
-            contination.resume(throwing: underlyingError)
-        } else {
-            contination.resume(with: response)
-        }
-    }
-    
     /// Does the actual work of sending an XPC request which receives zero or more sequential responses.
     private func sendRequest<S: Decodable>(_ request: Request, handler: @escaping XPCSequentialResponseHandler<S>) {
         self.withConnection { connectionResult in
@@ -522,27 +414,6 @@ public class XPCClient {
                     handler(.failure(XPCError.asXPCError(error: error)))
                     return
             }
-        }
-    }
-    
-    /// Populates the continuation while unwrapping any underlying errors thrown by a server's handler.
-    @available(macOS 10.15.0, *)
-    private func populateAsyncThrowingStreamContinuation<S: Decodable>(
-        _ continuation: AsyncThrowingStream<S, Error>.Continuation,
-        result: SequentialResult<S, XPCError>
-    ) {
-        switch result {
-            case .success(let value):
-                continuation.yield(value)
-            case .failure(let error):
-                if case .handlerError(let handlerError) = error,
-                   case .available(let underlyingError) = handlerError.underlyingError {
-                    continuation.finish(throwing: underlyingError)
-                } else {
-                    continuation.finish(throwing: error)
-                }
-            case .finished:
-                continuation.finish(throwing: nil)
         }
     }
     
@@ -632,23 +503,6 @@ public class XPCClient {
     // MARK: Server identity
     
     /// A representation of the server's running program.
-    ///
-    /// The returned ``XPCClient/ServerIdentity-swift.struct``'s information is provided by macOS itself and cannot be misrepresented
-    /// (intentionally or otherwise) by the server.
-    ///
-    /// > Note: Accessing this property involves cross-process communication with the server and is therefore subject to all of the same error conditions as making
-    /// a `send` or `sendMessage` call.
-    @available(macOS 10.15.0, *)
-    public var serverIdentity: XPCClient.ServerIdentity {
-        get async throws {
-            try await withUnsafeThrowingContinuation { continuation in
-                self.serverIdentity { response in
-                    continuation.resume(with: response)
-                }
-            }
-        }
-    }
-    
     /// Provides a representation of the server's running program to the handler.
     ///
     /// The provided ``XPCClient/ServerIdentity-swift.struct``'s information comes from macOS itself and cannot be misrepresented (intentionally
